@@ -77,10 +77,9 @@ func (t *Table) Print() {
 	for i := range t.rows {
 		fmt.Fprintln(t.w, t.rowLine(i, time.Now()))
 	}
-	fmt.Fprintln(t.w, t.sep())
 	fmt.Fprintln(t.w, t.bottom())
 
-	t.printedLines = 8 + len(t.rows)
+	t.printedLines = 7 + len(t.rows)
 	if t.isTTY {
 		t.wg.Add(1)
 		go t.spinLoop()

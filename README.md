@@ -3,7 +3,7 @@
   
   <h1 align="center">SkuntScan</h1>
 
-  <img src="https://github.com/user-attachments/assets/4091cd8c-5930-41a6-acf7-890226ad99f3" alt="Credits to Projectdiscovery for the idea" width="1020" />
+  <img src="https://github.com/user-attachments/assets/e014b603-9920-4c0b-b416-00d4f5b172e0" alt="Credits to Projectdiscovery for the banner idea" width="1020" />
 
   <br />
   <br />

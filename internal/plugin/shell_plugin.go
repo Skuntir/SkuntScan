@@ -39,7 +39,7 @@ func (s *ShellPlugin) Run(ctx context.Context, task Task) Result {
 
 	taskID := task.TaskID
 	if taskID == "" {
-		taskID = s.name + "-" + start.Format("20060102T150405.000000000")
+		taskID = s.name + "-" + start.Format("2006_01_02_15_04")
 	}
 	res := Result{
 		PluginName: s.name,

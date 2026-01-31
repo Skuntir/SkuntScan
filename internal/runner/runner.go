@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -125,7 +126,7 @@ func (r *Runner) Run(ctx context.Context, targetsPathOrSingle string) error {
 				table.MarkSkipped(i)
 			}
 		} else {
-			fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-6s  %-6s  %-4s\n", "TIME", "APEX", "TOOL", "EVENT", "DUR", "EXIT")
+			fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-8s  %-10s  %-4s\n", "TIME", "APEX", "TOOL", "EVENT", "DURATION", "EXIT")
 			now := time.Now().Format("15:04:05")
 			skipSet := make(map[int]struct{}, len(skipped))
 			for _, i := range skipped {
@@ -133,10 +134,10 @@ func (r *Runner) Run(ctx context.Context, targetsPathOrSingle string) error {
 			}
 			for i, name := range names {
 				if _, isSkipped := skipSet[i]; isSkipped {
-					fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-6s  %-6s  %-4s\n", now, apex, name, "skipped", "0ms", "0")
+					fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-8s  %-10s  %-4s\n", now, apex, name, "skipped", "0ms", "0")
 					continue
 				}
-				fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-6s  %-6s  %-4s\n", now, apex, name, "queued", "-", "-")
+				fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-8s  %-10s  %-4s\n", now, apex, name, "queued", "-", "-")
 			}
 		}
 
@@ -159,23 +160,15 @@ func (r *Runner) Run(ctx context.Context, targetsPathOrSingle string) error {
 			}
 
 			start := time.Now()
-			taskID := it.pc.Name + "-" + start.Format("20060102T150405.000000000")
+			baseTaskID := formatTaskID(it.pc.Name, start)
 
 			pluginDir := filepath.Join(groupWriter.BaseDir(), "raw", it.pc.Name)
 			if err := os.MkdirAll(pluginDir, 0o755); err != nil {
 				cancelT()
 				return err
 			}
-			stdoutPath := filepath.Join(pluginDir, taskID+".out")
-			stderrPath := filepath.Join(pluginDir, taskID+".err")
-			stdoutF, err := os.OpenFile(stdoutPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
+			taskID, stdoutPath, stderrPath, stdoutF, stderrF, err := openUniqueRawStreams(pluginDir, baseTaskID)
 			if err != nil {
-				cancelT()
-				return err
-			}
-			stderrF, err := os.OpenFile(stderrPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
-			if err != nil {
-				_ = stdoutF.Close()
 				cancelT()
 				return err
 			}
@@ -192,7 +185,7 @@ func (r *Runner) Run(ctx context.Context, targetsPathOrSingle string) error {
 				stderrPW = progress.NewPrefixWriter(os.Stdout, progress.TimePrefix(apex, it.pc.Name, "stderr"))
 				stdoutW = io.MultiWriter(stdoutF, stdoutPW)
 				stderrW = io.MultiWriter(stderrF, stderrPW)
-				fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-6s  %-6s  %-4s\n", time.Now().Format("15:04:05"), apex, it.pc.Name, "start", "-", "-")
+				fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-8s  %-10s  %-4s\n", time.Now().Format("15:04:05"), apex, it.pc.Name, "start", "-", "-")
 				if timeoutSec == 0 {
 					fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-6s  disabled\n", time.Now().Format("15:04:05"), apex, it.pc.Name, "timeout")
 				} else {
@@ -244,7 +237,7 @@ func (r *Runner) Run(ctx context.Context, targetsPathOrSingle string) error {
 
 			if res.Err != nil {
 				if r.cfg.Verbose {
-					fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-6s  %-6s  %-4d\n", time.Now().Format("15:04:05"), apex, it.pc.Name, "fail", progress.FormatDuration(dur), res.ExitCode)
+					fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-8s  %-10s  %-4d\n", time.Now().Format("15:04:05"), apex, it.pc.Name, "fail", progress.FormatDuration(dur), res.ExitCode)
 					fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-6s  %v\n", time.Now().Format("15:04:05"), apex, it.pc.Name, "error", res.Err)
 				} else if table != nil {
 					table.MarkFail(it.rowIdx, res.ExitCode, dur)
@@ -266,7 +259,7 @@ func (r *Runner) Run(ctx context.Context, targetsPathOrSingle string) error {
 			}
 
 			if r.cfg.Verbose {
-				fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-6s  %-6s  %-4d\n", time.Now().Format("15:04:05"), apex, it.pc.Name, "done", progress.FormatDuration(dur), res.ExitCode)
+				fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-8s  %-10s  %-4d\n", time.Now().Format("15:04:05"), apex, it.pc.Name, "done", progress.FormatDuration(dur), res.ExitCode)
 			} else if table != nil {
 				table.MarkDone(it.rowIdx, res.ExitCode, dur)
 			}
@@ -396,6 +389,38 @@ func substituteArgs(args []string, vars map[string]string) []string {
 		out = append(out, s)
 	}
 	return out
+}
+
+func formatTaskID(toolName string, start time.Time) string {
+	return toolName + "-" + start.Format("2006_01_02_15_04")
+}
+
+func openUniqueRawStreams(dir, baseTaskID string) (string, string, string, *os.File, *os.File, error) {
+	tryID := baseTaskID
+	for i := 0; ; i++ {
+		if i > 0 {
+			tryID = baseTaskID + "-" + strconv.Itoa(i+1)
+		}
+		stdoutPath := filepath.Join(dir, tryID+".out")
+		stderrPath := filepath.Join(dir, tryID+".err")
+		stdoutF, err := os.OpenFile(stdoutPath, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o644)
+		if err != nil {
+			if errors.Is(err, os.ErrExist) {
+				continue
+			}
+			return "", "", "", nil, nil, err
+		}
+		stderrF, err := os.OpenFile(stderrPath, os.O_CREATE|os.O_WRONLY|os.O_EXCL, 0o644)
+		if err != nil {
+			_ = stdoutF.Close()
+			_ = os.Remove(stdoutPath)
+			if errors.Is(err, os.ErrExist) {
+				continue
+			}
+			return "", "", "", nil, nil, err
+		}
+		return tryID, stdoutPath, stderrPath, stdoutF, stderrF, nil
+	}
 }
 
 func targetsFileVar(toolName string) string {

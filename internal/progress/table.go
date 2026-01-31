@@ -8,6 +8,8 @@ import (
 	"sync"
 	"time"
 	"unicode/utf8"
+
+	"golang.org/x/term"
 )
 
 type Table struct {
@@ -41,11 +43,17 @@ type row struct {
 
 func New(w io.Writer, apex string, tools []string) *Table {
 	isTTY := detectTTY(w)
+	contentWidth := 78
+	if isTTY {
+		if width, ok := detectTermWidth(w); ok {
+			contentWidth = clamp(width-4, 20, 78)
+		}
+	}
 	t := &Table{
 		w:            w,
 		isTTY:        isTTY,
 		apex:         apex,
-		contentWidth: 78,
+		contentWidth: contentWidth,
 		printedLines: 0,
 		spinFrames:   []string{"⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"},
 		stopCh:       make(chan struct{}),
@@ -233,10 +241,10 @@ func (t *Table) metaLine() string {
 
 func (t *Table) headerLine() string {
 	content := joinCols([]col{
-		{Text: "TIME", Width: 8},
+		{Text: "TIME", Width: 10},
 		{Text: "TOOL", Width: 14},
 		{Text: "STATUS", Width: 12},
-		{Text: "DUR", Width: 10},
+		{Text: "DURATION", Width: 10},
 		{Text: "EXIT", Width: 4},
 	})
 	return t.boxLine(content)
@@ -270,7 +278,7 @@ func (t *Table) rowLine(i int, now time.Time) string {
 	}
 
 	line := joinCols([]col{
-		{Text: timeCol, Width: 8},
+		{Text: timeCol, Width: 10},
 		{Text: r.tool, Width: 14},
 		{Text: statusCol, Width: 12},
 		{Text: durCol, Width: 10},
@@ -303,6 +311,18 @@ func detectTTY(w io.Writer) bool {
 	return (fi.Mode() & os.ModeCharDevice) != 0
 }
 
+func detectTermWidth(w io.Writer) (int, bool) {
+	f, ok := w.(*os.File)
+	if !ok {
+		return 0, false
+	}
+	width, _, err := term.GetSize(int(f.Fd()))
+	if err != nil || width <= 0 {
+		return 0, false
+	}
+	return width, true
+}
+
 func clamp(v, lo, hi int) int {
 	if v < lo {
 		return lo
@@ -311,16 +331,6 @@ func clamp(v, lo, hi int) int {
 		return hi
 	}
 	return v
-}
-
-func maxLen(items []string) int {
-	m := 0
-	for _, s := range items {
-		if l := len(s); l > m {
-			m = l
-		}
-	}
-	return m
 }
 
 func trunc(s string, width int) string {

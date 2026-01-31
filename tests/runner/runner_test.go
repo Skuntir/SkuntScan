@@ -7,6 +7,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"testing"
@@ -217,6 +218,12 @@ func TestRunner_WritesRawOutputs(t *testing.T) {
 	}
 	if len(entries) == 0 {
 		t.Fatalf("expected raw output files")
+	}
+	re := regexp.MustCompile(`^echo-\d{4}_\d{2}_\d{2}_\d{2}_\d{2}(-\d+)?\.(out|err|json)$`)
+	for _, e := range entries {
+		if !re.MatchString(e.Name()) {
+			t.Fatalf("unexpected raw output file: %s", e.Name())
+		}
 	}
 }
 

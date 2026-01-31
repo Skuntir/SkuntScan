@@ -1,0 +1,12 @@
+services:
+  skuntscan:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    image: skuntscan:local
+    working_dir: /work
+    volumes:
+      - ${PWD}:/work
+      - ${HOME}/.config/SkuntScan/conf:/config:ro
+    command: ["-targets", "/work/targets.txt", "-config", "/config/default.yaml"]
+

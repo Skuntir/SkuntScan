@@ -1,0 +1,32 @@
+output_dir: .
+concurrency: 16
+tool_timeout_sec: 0
+debug: false
+fail_fast: false
+# Placeholders:
+# - {{targets_file}}: current targets file (may be rewritten by produces_targets tools)
+# - {{base_targets_file}}: original input targets file for the apex group
+# - {{targets_file_<tool>}}: targets file as of that tool (tool name sanitized to lowercase/underscores)
+plugins:
+  - name: Subfinder
+    binary: $HOME/go/bin/subfinder
+    produces_targets: true
+    flags:
+      - -dL
+      - "{{targets_file}}"
+      - -silent
+  - name: Nuclei
+    binary: $HOME/go/bin/nuclei
+    timeout_sec: 0
+    flags:
+      - -l
+      - "{{targets_file_subfinder}}"
+      - -severity
+      - info,low,medium,high,critical
+      - -stats
+      - -timeout
+      - 10
+      - -retries
+      - 9
+      - -c
+      - 50

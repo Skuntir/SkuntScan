@@ -1,0 +1,162 @@
+output_dir: .
+concurrency: 16
+tool_timeout_sec: 0
+debug: false
+verbose: false
+fail_fast: false
+plugins:
+  - name: Subfinder
+    binary: $HOME/go/bin/subfinder
+    produces_targets: true
+    timeout_sec: 180
+    flags:
+      - -dL
+      - "{{base_targets_file}}"
+      - -silent
+      - -all
+
+  - name: AmassPassive
+    binary: $HOME/go/bin/amass
+    produces_targets: true
+    timeout_sec: 600
+    flags:
+      - enum
+      - -passive
+      - -df
+      - "{{base_targets_file}}"
+
+  - name: Findomain
+    binary: $HOME/go/bin/findomain
+    produces_targets: true
+    timeout_sec: 300
+    flags:
+      - -f
+      - "{{base_targets_file}}"
+      - -q
+
+  - name: Httpx
+    binary: $HOME/go/bin/httpx
+    produces_targets: true
+    timeout_sec: 300
+    flags:
+      - -silent
+      - -no-color
+      - -l
+      - "{{targets_file}}"
+      - -threads
+      - "100"
+      - -timeout
+      - "10"
+      - -retries
+      - "2"
+
+  - name: Naabu
+    binary: $HOME/go/bin/naabu
+    timeout_sec: 900
+    flags:
+      - -list
+      - "{{targets_file_httpx}}"
+      - -silent
+      - -no-color
+      - -rate
+      - "3000"
+      - -retries
+      - "2"
+
+  - name: Nmap
+    enabled: false
+    binary: nmap
+    timeout_sec: 3600
+    flags:
+      - -iL
+      - "{{targets_file_httpx}}"
+      - -sV
+      - -T4
+      - -Pn
+      - --reason
+      - -oN
+      - "-"
+
+  - name: Katana
+    binary: $HOME/go/bin/katana
+    timeout_sec: 900
+    flags:
+      - -list
+      - "{{targets_file_httpx}}"
+      - -silent
+      - -nc
+      - -c
+      - "20"
+      - -p
+      - "10"
+
+  - name: NucleiHosts
+    binary: $HOME/go/bin/nuclei
+    timeout_sec: 3600
+    flags:
+      - -l
+      - "{{targets_file_httpx}}"
+      - -severity
+      - info,low,medium,high,critical
+      - -stats
+      - -timeout
+      - "10"
+      - -retries
+      - "2"
+      - -c
+      - "50"
+
+  - name: NucleiURLs
+    enabled: false
+    binary: $HOME/go/bin/nuclei
+    timeout_sec: 3600
+    flags:
+      - -l
+      - "{{stdout_file_katana}}"
+      - -severity
+      - info,low,medium,high,critical
+      - -stats
+      - -timeout
+      - "10"
+      - -retries
+      - "2"
+      - -c
+      - "50"
+
+  - name: Dalfox
+    enabled: false
+    binary: $HOME/go/bin/dalfox
+    timeout_sec: 3600
+    flags:
+      - file
+      - "{{stdout_file_katana}}"
+      - --only-poc
+      - r
+      - --silence
+
+  - name: Dirsearch
+    enabled: false
+    binary: $HOME/go/bin/dirsearch
+    timeout_sec: 3600
+    flags:
+      - -l
+      - "{{targets_file_httpx}}"
+      - --format
+      - plain
+      - --output
+      - "{{output_dir}}/scans/dirsearch.txt"
+
+  - name: FFUF
+    enabled: false
+    binary: $HOME/go/bin/ffuf
+    timeout_sec: 3600
+    flags:
+      - -w
+      - "{{output_dir}}/wordlists/common.txt"
+      - -u
+      - "https://FUZZ"
+      - -ac
+      - -of
+      - json
+      - -o
+      - "{{output_dir}}/scans/ffuf.json"

@@ -1,0 +1,11 @@
+services:
+  skuntscan:
+    image: skuntscan:local
+    working_dir: /work
+    volumes:
+      - ${WORK_DIR:-.}:/work
+      - ${CONFIG_DIR:-/config}:/config:ro
+    environment:
+      - XDG_CONFIG_HOME=/tmp/xdg
+    command: ["-targets", "/work/targets.txt", "-config", "/config/default.yaml"]
+

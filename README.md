@@ -385,7 +385,7 @@ sequenceDiagram
 
 <h1 id="development">Development</h1>
 
-## Testing
+## Tests
 
 ```bash
 go test ./... -v

@@ -127,12 +127,12 @@ func (r *Runner) Run(ctx context.Context, targetsPathOrSingle string) error {
 			}
 		} else {
 			fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-8s  %-10s  %-4s\n", "TIME", "APEX", "TOOL", "EVENT", "DURATION", "EXIT")
-			now := time.Now().Format("15:04:05")
 			skipSet := make(map[int]struct{}, len(skipped))
 			for _, i := range skipped {
 				skipSet[i] = struct{}{}
 			}
 			for i, name := range names {
+				now := time.Now().Format("15:04:05")
 				if _, isSkipped := skipSet[i]; isSkipped {
 					fmt.Fprintf(os.Stdout, "%-8s  %-18s  %-12s  %-8s  %-10s  %-4s\n", now, apex, name, "skipped", "0ms", "0")
 					continue

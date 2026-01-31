@@ -114,7 +114,6 @@ func (t *Table) MarkDone(i int, exit int, dur time.Duration) {
 	} else {
 		t.rows[i].status = "fail"
 	}
-	t.rows[i].t = time.Now()
 	t.rows[i].dur = dur
 	t.rows[i].exit = exit
 	t.updateLine(i)
@@ -128,7 +127,6 @@ func (t *Table) MarkFail(i int, exit int, dur time.Duration) {
 		return
 	}
 	t.rows[i].status = "fail"
-	t.rows[i].t = time.Now()
 	t.rows[i].dur = dur
 	t.rows[i].exit = exit
 	t.updateLine(i)
@@ -240,7 +238,7 @@ func (t *Table) metaLine() string {
 
 func (t *Table) headerLine() string {
 	content := joinCols([]col{
-		{Text: "TIME", Width: 10},
+		{Text: "START", Width: 12},
 		{Text: "TOOL", Width: 14},
 		{Text: "STATUS", Width: 12},
 		{Text: "DURATION", Width: 10},
@@ -253,8 +251,10 @@ func (t *Table) rowLine(i int, now time.Time) string {
 	r := t.rows[i]
 
 	timeCol := ""
-	if !r.t.IsZero() {
-		timeCol = r.t.Format("15:04:05")
+	if !r.started.IsZero() {
+		timeCol = r.started.Format("15:04:05.000")
+	} else if !r.t.IsZero() {
+		timeCol = r.t.Format("15:04:05.000")
 	}
 
 	statusCol := r.status
@@ -277,7 +277,7 @@ func (t *Table) rowLine(i int, now time.Time) string {
 	}
 
 	line := joinCols([]col{
-		{Text: timeCol, Width: 10},
+		{Text: timeCol, Width: 12},
 		{Text: r.tool, Width: 14},
 		{Text: statusCol, Width: 12},
 		{Text: durCol, Width: 10},
